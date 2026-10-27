@@ -208,44 +208,85 @@
         let currentBrowsePath = "";
         let debounceTimer;
 
+        // === Dynamic BGM Playlist System ===
+        const upbeatTracks = [
+            "https://storage.googleapis.com/codemodernizer-ai-assets-19012/marketing_bg.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", // Gigi style upbeat
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3", // Upbeat electronic
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"  // Upbeat electronic
+        ];
+        const thinkingTrack = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3"; // Ambient/Chill
+        const scanningTrack = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3";  // Intense/Complex
+
+        let playCount = 0;
+        let isAudioEnabled = sessionStorage.getItem('bgm_enabled') === 'true';
+        let isIdle = false;
+        let isScanning = false;
+        let idleTimeout;
+
+        function updateCounterUI() {
+            const badge = document.getElementById('playCounterBadge');
+            badge.innerText = `${playCount}`;
+            badge.classList.remove('hidden');
+        }
+
+        function playTrack(url) {
+            const audio = document.getElementById('marketingAudio');
+            if (audio.src !== url) {
+                audio.src = url;
+                playCount++;
+                updateCounterUI();
+            }
+            audio.volume = 0.4;
+            audio.play().catch(e => console.log("Audio play blocked", e));
+        }
+
+        function playRandomUpbeat() {
+            const url = upbeatTracks[Math.floor(Math.random() * upbeatTracks.length)];
+            playTrack(url);
+        }
+
         function toggleAudio() {
             const audio = document.getElementById('marketingAudio');
-            const btn = document.getElementById('audioBtn');
-            if (audio.paused) {
-                audio.volume = 0.4; // Soft background volume
-                audio.play();
-                btn.innerHTML = `<svg class="w-4 h-4 text-indigo-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Pause BGM`;
+            isAudioEnabled = !isAudioEnabled;
+            sessionStorage.setItem('bgm_enabled', isAudioEnabled);
+            
+            const btnText = document.getElementById('audioText');
+            if (isAudioEnabled) {
+                btnText.innerText = "Pause BGM";
+                document.getElementById('audioIcon').classList.add('animate-pulse');
+                if (isScanning) playTrack(scanningTrack);
+                else if (isIdle) playTrack(thinkingTrack);
+                else playRandomUpbeat();
             } else {
+                btnText.innerText = "Play BGM";
+                document.getElementById('audioIcon').classList.remove('animate-pulse');
                 audio.pause();
-                btn.innerHTML = `<svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg> Play BGM`;
             }
         }
 
         async function handleAutocomplete(value) {
             clearTimeout(debounceTimer);
             const resultsDiv = document.getElementById('autocompleteResults');
-            
             if (!value) {
                 resultsDiv.classList.add('hidden');
                 return;
             }
-            
             debounceTimer = setTimeout(async () => {
                 try {
                     const response = await fetch(`/api/autocomplete?path=${encodeURIComponent(value)}`);
                     const data = await response.json();
-                    
                     if (data.suggestions && data.suggestions.length > 0) {
                         resultsDiv.innerHTML = '';
                         data.suggestions.forEach(suggestion => {
                             const div = document.createElement('div');
-                            div.className = 'px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 font-mono text-left truncate';
+                            div.className = 'px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm text-slate-700 font-mono text-left truncate';
                             div.innerText = suggestion;
                             div.onclick = () => {
                                 document.getElementById('repoPath').value = suggestion;
                                 resultsDiv.classList.add('hidden');
                                 document.getElementById('repoPath').focus();
-                                handleAutocomplete(suggestion); // trigger next level
+                                handleAutocomplete(suggestion);
                             };
                             resultsDiv.appendChild(div);
                         });
@@ -253,15 +294,14 @@
                     } else {
                         resultsDiv.classList.add('hidden');
                     }
-                } catch (e) {
-                    console.error(e);
-                }
+                } catch (e) {}
             }, 150);
         }
 
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', e => {
             if (e.target.id !== 'repoPath') {
-                document.getElementById('autocompleteResults').classList.add('hidden');
+                const results = document.getElementById('autocompleteResults');
+                if(results) results.classList.add('hidden');
             }
         });
 
@@ -277,11 +317,7 @@
         async function loadDirectory(path) {
             const response = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
             const data = await response.json();
-            
-            if (data.error) {
-                alert(data.error);
-                return;
-            }
+            if (data.error) return alert(data.error);
 
             currentBrowsePath = data.current_path;
             document.getElementById('currentPathDisplay').innerText = data.current_path;
@@ -289,7 +325,6 @@
             const list = document.getElementById('directoryList');
             list.innerHTML = "";
             
-            // Parent directory link (if not root)
             if (data.parent_path && data.parent_path !== data.current_path) {
                 const li = document.createElement('li');
                 li.className = "p-2 hover:bg-slate-50 cursor-pointer rounded text-indigo-600 flex items-center gap-2";
@@ -298,7 +333,6 @@
                 list.appendChild(li);
             }
 
-            // Subdirectories
             data.directories.forEach(dir => {
                 const li = document.createElement('li');
                 li.className = "p-2 hover:bg-slate-50 cursor-pointer rounded text-slate-700 flex items-center gap-2";
@@ -313,20 +347,58 @@
             closeBrowser();
         }
 
+        // SPA Table Update without reloading (keeps music playing)
+        async function reloadTableOnly() {
+            try {
+                const res = await fetch(window.location.href);
+                const text = await res.text();
+                const parser = new DOMParser();
+                const doc = parser.parseDocument(text, 'text/html');
+                
+                // Extract only the table and jobs container to preserve the rest of the UI
+                document.querySelector('.max-w-7xl').innerHTML = doc.querySelector('.max-w-7xl').innerHTML;
+                
+                // Restart polling and drawing diffs for new elements
+                pollScanStatus();
+                document.querySelectorAll('[id^="diff-raw-"]').forEach(rawElement => {
+                    const jobId = rawElement.id.split('-')[2];
+                    const diffString = rawElement.innerText;
+                    const targetElement = document.getElementById(`diff-ui-${jobId}`);
+                    if (targetElement && diffString) {
+                        const configuration = { drawFileList: false, matching: 'lines', outputFormat: 'side-by-side' };
+                        new Diff2HtmlUI(targetElement, diffString, configuration).draw();
+                    }
+                });
+
+                // Re-bind audio button state because we overwrote it
+                const btnText = document.getElementById('audioText');
+                if (isAudioEnabled) {
+                    btnText.innerText = "Pause BGM";
+                    document.getElementById('audioIcon').classList.add('animate-pulse');
+                    updateCounterUI();
+                }
+
+            } catch (e) { console.error("SPA reload failed", e); }
+        }
+
         async function triggerScan() {
             const path = document.getElementById('repoPath').value;
             if (!path) return alert('Please enter a path');
             
+            isScanning = true;
+            if (isAudioEnabled) playTrack(scanningTrack); // Switch to Intense music!
+
             const response = await fetch(`/api/scan?repo_path=${encodeURIComponent(path)}`, { method: 'POST' });
             if (response.ok) {
-                // Instantly reload to show the new scanning row in the table
-                window.location.reload();
+                // Fetch the new table via SPA instead of reloading
+                await reloadTableOnly();
             } else {
                 alert('Failed to start scan.');
+                isScanning = false;
+                if (isAudioEnabled) playRandomUpbeat();
             }
         }
 
-        // Live Polling logic for Multi-Agent progress
         async function pollScanStatus() {
             const statusSpans = document.querySelectorAll('[id^="status-"]');
             let isAnyScanning = false;
@@ -335,7 +407,6 @@
                 const scanId = span.id.split('-')[1];
                 const currentStatus = span.innerText.trim();
                 
-                // If it's not completed or failed, poll for updates
                 if (currentStatus !== 'completed' && !currentStatus.includes('failed')) {
                     isAnyScanning = true;
                     try {
@@ -347,20 +418,27 @@
                             span.className = data.status === 'completed' 
                                 ? "px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800"
                                 : "px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800";
-                                
-                            // Reload one final time to fetch the resulting vulnerabilities and diffs
-                            setTimeout(() => window.location.reload(), 1500); 
+                            
+                            // We use SPA reload when it finishes so music never stops!
+                            setTimeout(reloadTableOnly, 1500); 
                         }
                     } catch (e) { console.error("Polling error", e); }
                 }
             }
 
-            if (isAnyScanning) {
-                setTimeout(pollScanStatus, 1500); // Check every 1.5 seconds
+            if (!isAnyScanning && isScanning) {
+                // All scans finished! Switch back to normal/idle music
+                isScanning = false;
+                if (isAudioEnabled) {
+                    playRandomUpbeat();
+                }
+            } else if (isAnyScanning) {
+                isScanning = true;
+                setTimeout(pollScanStatus, 1500);
             }
         }
 
-        // Render diffs on page load and start polling
+        // Initialize Music and Diffs on page load
         document.addEventListener('DOMContentLoaded', () => {
             pollScanStatus();
             
@@ -368,15 +446,38 @@
             (function() {
                 const diffString = document.getElementById('diff-raw-{{ job.id }}').innerText;
                 const targetElement = document.getElementById('diff-ui-{{ job.id }}');
-                const configuration = {
-                    drawFileList: false,
-                    matching: 'lines',
-                    outputFormat: 'side-by-side',
-                };
-                const diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
-                diff2htmlUi.draw();
+                const configuration = { drawFileList: false, matching: 'lines', outputFormat: 'side-by-side' };
+                if (targetElement && diffString) {
+                    new Diff2HtmlUI(targetElement, diffString, configuration).draw();
+                }
             })();
             {% endfor %}
+
+            // Audio playlist auto-advance
+            const audio = document.getElementById('marketingAudio');
+            audio.addEventListener('ended', () => {
+                if (!isAudioEnabled) return;
+                if (isScanning) playTrack(scanningTrack);
+                else if (isIdle) playTrack(thinkingTrack);
+                else playRandomUpbeat();
+            });
+
+            // Idle Detection System
+            const resetIdle = () => {
+                if (isIdle && isAudioEnabled && !isScanning) {
+                    isIdle = false;
+                    playRandomUpbeat();
+                }
+                isIdle = false;
+                clearTimeout(idleTimeout);
+                idleTimeout = setTimeout(() => {
+                    isIdle = true;
+                    if (isAudioEnabled && !isScanning) playTrack(thinkingTrack);
+                }, 5000); // 5 seconds of idle mouse = thinking mode
+            };
+            document.addEventListener('mousemove', resetIdle);
+            document.addEventListener('keypress', resetIdle);
+            resetIdle();
         });
     </script>
 </body>
