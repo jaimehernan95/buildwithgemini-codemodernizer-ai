@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeModernizer-AI Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Diff2Html -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">CodeModernizer-AI</h1>
+            <div class="flex gap-4">
+                <input type="text" id="repoPath" class="w-96 px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter path to repository..." value="/config/Desktop/BuildWithGemini/CodeModernizer-AI/target_workspace/legacy_sample">
+                <button onclick="triggerScan()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition duration-200">Start Scan</button>
+            </div>
+        </header>
+
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Recent Scans</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-700">
+                            <th class="p-3 border-b">ID</th>
+                            <th class="p-3 border-b">Repository</th>
+                            <th class="p-3 border-b">Status</th>
+                            <th class="p-3 border-b">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for scan in scans %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-3 border-b">{{ scan.id }}</td>
+                            <td class="p-3 border-b">{{ scan.repo_name }}</td>
+                            <td class="p-3 border-b">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                    {% if scan.status == 'completed' %} bg-green-100 text-green-800 
+                                    {% elif scan.status == 'scanning' %} bg-blue-100 text-blue-800 
+                                    {% else %} bg-red-100 text-red-800 {% endif %}">
+                                    {{ scan.status }}
+                                </span>
+                            </td>
+                            <td class="p-3 border-b">{{ scan.created_at.strftime('%Y-%m-%d %H:%M:%S') if scan.created_at else 'N/A' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="p-3 text-center text-gray-500">No scans recorded yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Security Vulnerabilities</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-700">
+                            <th class="p-3 border-b">Severity</th>
+                            <th class="p-3 border-b">File</th>
+                            <th class="p-3 border-b">Line</th>
+                            <th class="p-3 border-b">Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for finding in findings %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-3 border-b font-bold 
+                                {% if finding.severity == 'CRITICAL' %} text-red-600 
+                                {% elif finding.severity == 'HIGH' %} text-orange-500 
+                                {% elif finding.severity == 'MEDIUM' %} text-yellow-500 
+                                {% else %} text-blue-500 {% endif %}">
+                                {{ finding.severity }}
+                            </td>
+                            <td class="p-3 border-b font-mono text-sm">{{ finding.file_path }}</td>
+                            <td class="p-3 border-b">{{ finding.line_number }}</td>
+                            <td class="p-3 border-b">{{ finding.description }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="p-3 text-center text-gray-500">No vulnerabilities found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Refactoring Jobs (Unified Diffs)</h2>
+            <div class="space-y-8">
+                {% for job in jobs %}
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold text-gray-800">Job ID: {{ job.id }}</h3>
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full {% if job.test_passed %} bg-green-100 text-green-800 {% else %} bg-red-100 text-red-800 {% endif %}">
+                            QA: {{ 'Passed' if job.test_passed else 'Failed' }}
+                        </span>
+                    </div>
+                    <!-- Invisible element holding the raw diff for diff2html to consume -->
+                    <div id="diff-raw-{{ job.id }}" class="hidden">{{ job.proposed_diff }}</div>
+                    <!-- Diff2Html UI container -->
+                    <div id="diff-ui-{{ job.id }}"></div>
+                </div>
+                {% else %}
+                <p class="text-center text-gray-500">No refactoring jobs recorded.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function triggerScan() {
+            const path = document.getElementById('repoPath').value;
+            if (!path) return alert('Please enter a path');
+            
+            const response = await fetch(`/api/scan?repo_path=${encodeURIComponent(path)}`, { method: 'POST' });
+            if (response.ok) {
+                alert('Scan started successfully!');
+                setTimeout(() => window.location.reload(), 2000);
+            } else {
+                alert('Failed to start scan.');
+            }
+        }
+
+        // Render diffs on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            {% for job in jobs %}
+            (function() {
+                const diffString = document.getElementById('diff-raw-{{ job.id }}').innerText;
+                const targetElement = document.getElementById('diff-ui-{{ job.id }}');
+                const configuration = {
+                    drawFileList: false,
+                    matching: 'lines',
+                    outputFormat: 'side-by-side',
+                };
+                const diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
+                diff2htmlUi.draw();
+            })();
+            {% endfor %}
+        });
+    </script>
+</body>
+</html>
