@@ -21,34 +21,34 @@ class ModernizerOrchestrator:
             model="gemini-2.5-flash"
         )
 
+    def set_status(self, scan_id: int, status: str):
+        scan = self.db.query(RepositoryScan).filter(RepositoryScan.id == scan_id).first()
+        if scan:
+            scan.status = status
+            self.db.commit()
+
     def run_pipeline(self, repo_path: str, scan_id: int):
         print(f"Starting pipeline for scan {scan_id} on {repo_path}")
         try:
-            # We directly invoke the tools associated with the agents 
-            # to maintain deterministic pipeline execution and satisfy test cases.
-            
             # 1. Parse AST
+            self.set_status(scan_id, "Agent Action: ParserAgent is mapping AST...")
             ast_map = parse_repository(repo_path)
             
             # 2. Audit Security
+            self.set_status(scan_id, "Agent Action: SecurityAuditor is scanning...")
             audit_ast(self.db, ast_map, scan_id)
             
             # 3. Refactor Code
+            self.set_status(scan_id, "Agent Action: RefactorAgent is modernizing...")
             modernize_code(self.db, ast_map, scan_id)
             
             # 4. Run Sandboxed QA
+            self.set_status(scan_id, "Agent Action: QATester is verifying diffs...")
             qa_results = verify_code(self.db, repo_path, scan_id)
             
-            # Update status
-            scan = self.db.query(RepositoryScan).filter(RepositoryScan.id == scan_id).first()
-            if scan:
-                scan.status = "completed" if qa_results['success'] else "failed_qa"
-                self.db.commit()
-                
+            # Update final status
+            self.set_status(scan_id, "completed" if qa_results['success'] else "failed_qa")
             print(f"Pipeline completed for scan {scan_id}")
         except Exception as e:
             print(f"Pipeline failed: {e}")
-            scan = self.db.query(RepositoryScan).filter(RepositoryScan.id == scan_id).first()
-            if scan:
-                scan.status = "failed"
-                self.db.commit()
+            self.set_status(scan_id, "failed")

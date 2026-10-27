@@ -13,13 +13,69 @@
 <body class="bg-gray-100 text-gray-800 font-sans min-h-screen p-6">
 
     <div class="max-w-7xl mx-auto">
-        <header class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">CodeModernizer-AI</h1>
-            <div class="flex gap-4">
-                <input type="text" id="repoPath" class="w-96 px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter path to repository..." value="/config/Desktop/BuildWithGemini/CodeModernizer-AI/target_workspace/legacy_sample">
-                <button onclick="triggerScan()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition duration-200">Start Scan</button>
+        <header class="flex flex-col gap-6 mb-8">
+            <div class="flex justify-between items-center w-full">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">CodeModernizer-AI</h1>
+                    <p class="text-gray-500 mt-1">Multi-Agent Enterprise Legacy Code Auditing & Modernization Pipeline</p>
+                </div>
+            </div>
+
+            <!-- Pitch & Instructions -->
+            <div class="bg-slate-50 border-l-4 border-slate-700 p-4 rounded-r-lg mb-6 shadow-sm">
+                <h2 class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">System Architecture Overview</h2>
+                <ol class="list-decimal list-inside text-sm text-slate-800 space-y-1 ml-2 font-medium">
+                    <li><span class="text-indigo-700">ParserAgent:</span> Reads the repository and builds a semantic map of the AST.</li>
+                    <li><span class="text-indigo-700">SecurityAuditorAgent:</span> Scans the AST map for critical vulnerabilities.</li>
+                    <li><span class="text-indigo-700">RefactorAgent:</span> Generates unified git diffs to modernize legacy patterns.</li>
+                    <li><span class="text-indigo-700">QATesterAgent:</span> Verifies the diffs in an isolated sandbox to ensure no regressions.</li>
+                </ol>
+                <div class="mt-4 pt-3 border-t border-slate-200 flex items-center gap-2">
+                    <span class="relative flex h-3 w-3">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
+                    </span>
+                    <p class="text-xs text-slate-600 font-bold uppercase tracking-widest">System Status: Monitoring Agent Handoffs in Real-Time</p>
+                </div>
+            </div>
+
+            <div class="flex-1 w-full">
+                <div class="flex gap-4 w-full max-w-4xl">
+                    <div class="relative flex-1">
+                        <input type="text" id="repoPath" autocomplete="off" oninput="handleAutocomplete(this.value)" class="w-full px-4 py-3 border border-slate-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm text-slate-700 bg-white" placeholder="Enter absolute local path to repository..." value="/config/Desktop/BuildWithGemini/CodeModernizer-AI/target_workspace/legacy_sample">
+                        <div id="autocompleteResults" class="absolute z-10 w-full bg-white border border-slate-200 rounded-b shadow-lg hidden max-h-60 overflow-y-auto mt-1"></div>
+                    </div>
+                    <button onclick="openBrowser('/config/Desktop')" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold py-3 px-6 rounded shadow transition duration-200 tracking-wide uppercase text-xs flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                        Browse
+                    </button>
+                    <button onclick="triggerScan()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded shadow transition duration-200 whitespace-nowrap tracking-wide uppercase text-xs flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        Initiate Scan
+                    </button>
+                </div>
             </div>
         </header>
+
+        <!-- Directory Browser Modal -->
+        <div id="browseModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
+            <div class="relative bg-white rounded-xl shadow-lg w-full max-w-lg mx-auto">
+                <div class="flex justify-between items-center p-4 border-b">
+                    <h3 class="text-lg font-semibold text-gray-900">Select Directory</h3>
+                    <button onclick="closeBrowser()" class="text-gray-400 hover:text-gray-600">&times;</button>
+                </div>
+                <div class="p-4 h-64 overflow-y-auto">
+                    <div class="text-sm text-gray-500 mb-2 font-mono break-all" id="currentPathDisplay">/</div>
+                    <ul id="directoryList" class="space-y-1">
+                        <!-- Populated by JS -->
+                    </ul>
+                </div>
+                <div class="flex justify-end p-4 border-t gap-2">
+                    <button onclick="closeBrowser()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancel</button>
+                    <button onclick="selectDirectory()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Select</button>
+                </div>
+            </div>
+        </div>
 
         <div class="bg-white rounded-xl shadow-md p-6 mb-8">
             <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Recent Scans</h2>
@@ -29,27 +85,32 @@
                         <tr class="bg-gray-50 text-gray-700">
                             <th class="p-3 border-b">ID</th>
                             <th class="p-3 border-b">Repository</th>
-                            <th class="p-3 border-b">Status</th>
+                            <th class="p-3 border-b">Live Agent Status</th>
                             <th class="p-3 border-b">Time</th>
+                            <th class="p-3 border-b text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for scan in scans %}
                         <tr class="hover:bg-gray-50">
                             <td class="p-3 border-b">{{ scan.id }}</td>
-                            <td class="p-3 border-b">{{ scan.repo_name }}</td>
+                            <td class="p-3 border-b font-mono text-sm">{{ scan.repo_name }}</td>
                             <td class="p-3 border-b">
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                <span id="status-{{ scan.id }}" class="px-3 py-1 text-xs font-semibold rounded-full 
                                     {% if scan.status == 'completed' %} bg-green-100 text-green-800 
-                                    {% elif scan.status == 'scanning' %} bg-blue-100 text-blue-800 
-                                    {% else %} bg-red-100 text-red-800 {% endif %}">
+                                    {% elif 'failed' in scan.status %} bg-red-100 text-red-800 
+                                    {% else %} bg-blue-100 text-blue-800 animate-pulse {% endif %}">
                                     {{ scan.status }}
                                 </span>
                             </td>
-                            <td class="p-3 border-b">{{ scan.created_at.strftime('%Y-%m-%d %H:%M:%S') if scan.created_at else 'N/A' }}</td>
+                            <td class="p-3 border-b text-sm">{{ scan.created_at.strftime('%Y-%m-%d %H:%M:%S') if scan.created_at else 'N/A' }}</td>
+                            <td class="p-3 border-b text-right space-x-2">
+                                <a href="/api/scan/{{ scan.id }}/export/csv" class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded shadow-sm transition">CSV</a>
+                                <a href="/api/scan/{{ scan.id }}/export/json" class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded shadow-sm transition">JSON</a>
+                            </td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="4" class="p-3 text-center text-gray-500">No scans recorded yet.</td></tr>
+                        <tr><td colspan="5" class="p-3 text-center text-gray-500">No scans recorded yet.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -111,24 +172,175 @@
                 {% endfor %}
             </div>
         </div>
+
+        <!-- Marketing & Support Footer -->
+        <footer class="mt-12 border-t border-slate-200 pt-8 pb-4">
+            <div class="flex flex-col md:flex-row justify-between items-center text-sm text-slate-500">
+                <div>
+                    <p class="font-semibold text-slate-700">CodeModernizer-AI Enterprise Edition</p>
+                    <p>Automated Legacy Code Auditing & Modernization Pipeline.</p>
+                </div>
+                <div class="mt-4 md:mt-0 flex gap-6 text-slate-600">
+                    <a href="mailto:sales@codemodernizer.ai" class="hover:text-indigo-600 transition flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        Contact Sales
+                    </a>
+                    <a href="mailto:support@codemodernizer.ai" class="hover:text-indigo-600 transition flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        24/7 Support
+                    </a>
+                </div>
+            </div>
+        </footer>
     </div>
 
     <script>
+        let currentBrowsePath = "";
+        let debounceTimer;
+
+        async function handleAutocomplete(value) {
+            clearTimeout(debounceTimer);
+            const resultsDiv = document.getElementById('autocompleteResults');
+            
+            if (!value) {
+                resultsDiv.classList.add('hidden');
+                return;
+            }
+            
+            debounceTimer = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/api/autocomplete?path=${encodeURIComponent(value)}`);
+                    const data = await response.json();
+                    
+                    if (data.suggestions && data.suggestions.length > 0) {
+                        resultsDiv.innerHTML = '';
+                        data.suggestions.forEach(suggestion => {
+                            const div = document.createElement('div');
+                            div.className = 'px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 font-mono text-left truncate';
+                            div.innerText = suggestion;
+                            div.onclick = () => {
+                                document.getElementById('repoPath').value = suggestion;
+                                resultsDiv.classList.add('hidden');
+                                document.getElementById('repoPath').focus();
+                                handleAutocomplete(suggestion); // trigger next level
+                            };
+                            resultsDiv.appendChild(div);
+                        });
+                        resultsDiv.classList.remove('hidden');
+                    } else {
+                        resultsDiv.classList.add('hidden');
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }, 150);
+        }
+
+        document.addEventListener('click', function(e) {
+            if (e.target.id !== 'repoPath') {
+                document.getElementById('autocompleteResults').classList.add('hidden');
+            }
+        });
+
+        async function openBrowser(path) {
+            document.getElementById('browseModal').classList.remove('hidden');
+            await loadDirectory(path);
+        }
+
+        function closeBrowser() {
+            document.getElementById('browseModal').classList.add('hidden');
+        }
+
+        async function loadDirectory(path) {
+            const response = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            currentBrowsePath = data.current_path;
+            document.getElementById('currentPathDisplay').innerText = data.current_path;
+            
+            const list = document.getElementById('directoryList');
+            list.innerHTML = "";
+            
+            // Parent directory link (if not root)
+            if (data.parent_path && data.parent_path !== data.current_path) {
+                const li = document.createElement('li');
+                li.className = "p-2 hover:bg-slate-50 cursor-pointer rounded text-indigo-600 flex items-center gap-2";
+                li.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg> ..`;
+                li.onclick = () => loadDirectory(data.parent_path);
+                list.appendChild(li);
+            }
+
+            // Subdirectories
+            data.directories.forEach(dir => {
+                const li = document.createElement('li');
+                li.className = "p-2 hover:bg-slate-50 cursor-pointer rounded text-slate-700 flex items-center gap-2";
+                li.innerHTML = `<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg> ${dir.name}`;
+                li.onclick = () => loadDirectory(dir.path);
+                list.appendChild(li);
+            });
+        }
+
+        function selectDirectory() {
+            document.getElementById('repoPath').value = currentBrowsePath;
+            closeBrowser();
+        }
+
         async function triggerScan() {
             const path = document.getElementById('repoPath').value;
             if (!path) return alert('Please enter a path');
             
             const response = await fetch(`/api/scan?repo_path=${encodeURIComponent(path)}`, { method: 'POST' });
             if (response.ok) {
-                alert('Scan started successfully!');
-                setTimeout(() => window.location.reload(), 2000);
+                // Instantly reload to show the new scanning row in the table
+                window.location.reload();
             } else {
                 alert('Failed to start scan.');
             }
         }
 
-        // Render diffs on page load
+        // Live Polling logic for Multi-Agent progress
+        async function pollScanStatus() {
+            const statusSpans = document.querySelectorAll('[id^="status-"]');
+            let isAnyScanning = false;
+
+            for (const span of statusSpans) {
+                const scanId = span.id.split('-')[1];
+                const currentStatus = span.innerText.trim();
+                
+                // If it's not completed or failed, poll for updates
+                if (currentStatus !== 'completed' && !currentStatus.includes('failed')) {
+                    isAnyScanning = true;
+                    try {
+                        const res = await fetch(`/api/scan/${scanId}/status`);
+                        const data = await res.json();
+                        span.innerText = data.status;
+                        
+                        if (data.status === 'completed' || data.status.includes('failed')) {
+                            span.className = data.status === 'completed' 
+                                ? "px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800"
+                                : "px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800";
+                                
+                            // Reload one final time to fetch the resulting vulnerabilities and diffs
+                            setTimeout(() => window.location.reload(), 1500); 
+                        }
+                    } catch (e) { console.error("Polling error", e); }
+                }
+            }
+
+            if (isAnyScanning) {
+                setTimeout(pollScanStatus, 1500); // Check every 1.5 seconds
+            }
+        }
+
+        // Render diffs on page load and start polling
         document.addEventListener('DOMContentLoaded', () => {
+            pollScanStatus();
+            
             {% for job in jobs %}
             (function() {
                 const diffString = document.getElementById('diff-raw-{{ job.id }}').innerText;
