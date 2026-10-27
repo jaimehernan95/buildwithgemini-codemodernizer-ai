@@ -27,7 +27,7 @@
                     <button onclick="toggleAudio()" id="audioBtn" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold py-2 px-4 rounded-full shadow-sm transition duration-200 flex items-center gap-2 text-xs uppercase tracking-wider relative">
                         <svg id="audioIcon" class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
                         <span id="audioText">Play BGM</span>
-                        <span id="playCounterBadge" class="hidden bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded-full ml-1">0</span>
+                        <span id="nowPlayingText" class="hidden text-indigo-500 text-[10px] font-mono ml-1 border-l border-slate-300 pl-2 normal-case tracking-normal truncate max-w-[150px]"></span>
                     </button>
                 </div>
             </div>
@@ -214,40 +214,46 @@
 
         // === Dynamic BGM Playlist System ===
         const upbeatTracks = [
-            "https://storage.googleapis.com/codemodernizer-ai-assets-19012/marketing_bg.mp3",
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", // Gigi style upbeat
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3", // Upbeat electronic
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"  // Upbeat electronic
+            { name: "Italo Dance Mix", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
+            { name: "L'Amour Trance", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
+            { name: "Eurobeat Anthem", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3" },
+            { name: "Gigi Club Edit", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" },
+            { name: "House Classic", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
+            { name: "Marketing BGM", url: "https://storage.googleapis.com/codemodernizer-ai-assets-19012/marketing_bg.mp3" }
         ];
-        const thinkingTrack = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3"; // Ambient/Chill
-        const scanningTrack = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3";  // Intense/Complex
+        const thinkingTrack = { name: "Thinking (Idle)", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3" };
+        const scanningTrack = { name: "Active Scan (Complex)", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3" };
 
-        let playCount = 0;
         let isAudioEnabled = sessionStorage.getItem('bgm_enabled') === 'true';
         let isIdle = false;
         let isScanning = false;
         let idleTimeout;
+        let currentTrackObj = null;
 
-        function updateCounterUI() {
-            const badge = document.getElementById('playCounterBadge');
-            badge.innerText = `${playCount}`;
-            badge.classList.remove('hidden');
+        function updateNowPlayingUI(trackName) {
+            const label = document.getElementById('nowPlayingText');
+            if (trackName && isAudioEnabled) {
+                label.innerText = `🎵 ${trackName}`;
+                label.classList.remove('hidden');
+            } else {
+                label.classList.add('hidden');
+            }
         }
 
-        function playTrack(url) {
+        function playTrack(trackObj) {
             const audio = document.getElementById('marketingAudio');
-            if (audio.src !== url) {
-                audio.src = url;
-                playCount++;
-                updateCounterUI();
+            if (audio.src !== trackObj.url) {
+                audio.src = trackObj.url;
+                currentTrackObj = trackObj;
+                updateNowPlayingUI(trackObj.name);
             }
             audio.volume = 0.4;
             audio.play().catch(e => console.log("Audio play blocked", e));
         }
 
         function playRandomUpbeat() {
-            const url = upbeatTracks[Math.floor(Math.random() * upbeatTracks.length)];
-            playTrack(url);
+            const track = upbeatTracks[Math.floor(Math.random() * upbeatTracks.length)];
+            playTrack(track);
         }
 
         function toggleAudio() {
@@ -265,6 +271,7 @@
             } else {
                 btnText.innerText = "Play BGM";
                 document.getElementById('audioIcon').classList.remove('animate-pulse');
+                updateNowPlayingUI(null);
                 audio.pause();
             }
         }
@@ -379,7 +386,7 @@
                 if (isAudioEnabled) {
                     btnText.innerText = "Pause BGM";
                     document.getElementById('audioIcon').classList.add('animate-pulse');
-                    updateCounterUI();
+                    if (currentTrackObj) updateNowPlayingUI(currentTrackObj.name);
                 }
 
             } catch (e) { console.error("SPA reload failed", e); }
